@@ -1,0 +1,142 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: python-ci-cd-public
+  namespace: default
+spec:
+  description: |
+    Complete CI/CD pipeline for Python Flask application
+    Adapted from enterprise Jenkinsfile to public infrastructure
+    Works with Docker Hub or GitHub Container Registry
+  
+  params:
+    - name: repo-url
+      type: string
+      description: Git repository URL
+      default: "https://github.com/restalion/python-jenkins-pipeline.git"
+    - name: revision
+      type: string
+      description: Git revision (branch, tag, or SHA)
+      default: "main"
+    - name: python-version
+      type: string
+      description: Python version to use
+      default: "3.11"
+    - name: image-name
+      type: string
+      description: Full image name (e.g., docker.io/username/app or ghcr.io/username/app)
+      default: "docker.io/youruser/python-app"
+    - name: image-tag
+      type: string
+      description: Image tag
+      default: "latest"
+  
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for pipeline tasks
+    - name: docker-credentials
+      description: Docker registry credentials (optional for public repos)
+      optional: true
+  
+  tasks:
+    # Stage 1: Clone repository
+    - name: fetch-source
+      taskRef:
+        name: git-clone
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+      workspaces:
+        - name: output
+          workspace: shared-data
+
+    # Stage 2: Environment preparation & compile
+    - name: setup-environment
+      taskRef:
+        name: python-environment-setup
+      runAfter:
+        - fetch-source
+      params:
+        - name: python-version
+          value: $(params.python-version)
+      workspaces:
+        - name: source
+          workspace: shared-data
+
+    # Stage 3: Unit tests, config creation, and validation
+    - name: run-tests-and-config
+      taskRef:
+        name: python-tests-comprehensive
+      runAfter:
+        - setup-environment
+      params:
+        - name: python-version
+          value: $(params.python-version)
+      workspaces:
+        - name: source
+          workspace: shared-data
+
+    # Stage 4: Build Docker image and push to registry
+    - name: build-and-push-image
+      taskRef:
+        name: docker-build-push
+      runAfter:
+        - run-tests-and-config
+      params:
+        - name: image-name
+          value: $(params.image-name)
+        - name: image-tag
+          value: $(params.image-tag)
+      workspaces:
+        - name: source
+          workspace: shared-data
+        - name: dockerconfig
+          workspace: docker-credentials
+
+    # Stage 5: Integration tests (run container and test)
+    - name: integration-tests
+      taskRef:
+        name: docker-integration-tests
+      runAfter:
+        - build-and-push-image
+      params:
+        - name: image-url
+          value: "$(tasks.build-and-push-image.results.IMAGE_URL)"
+        - name: python-version
+          value: $(params.python-version)
+      workspaces:
+        - name: source
+          workspace: shared-data
+
+  finally:
+    # Cleanup and notification
+    - name: pipeline-summary
+      params:
+        - name: pipeline-status
+          value: "$(tasks.status)"
+        - name: image-url
+          value: "$(tasks.build-and-push-image.results.IMAGE_URL)"
+      taskSpec:
+        params:
+          - name: pipeline-status
+          - name: image-url
+        steps:
+          - name: summary
+            image: alpine:latest
+            script: |
+              #!/bin/sh
+              echo "=========================================="
+              echo "Pipeline Execution Summary"
+              echo "=========================================="
+              echo "Status: $(params.pipeline-status)"
+              echo "Image: $(params.image-url)"
+              echo "Completed at: $(date)"
+              echo "=========================================="
+              
+              if [ "$(params.pipeline-status)" = "Succeeded" ]; then
+                echo "Pipeline completed successfully!"
+              else
+                echo "Pipeline failed. Check logs for details."
+              fi
