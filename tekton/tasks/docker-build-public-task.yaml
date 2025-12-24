@@ -2,50 +2,58 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: docker-build-push
-  namespace: default
 spec:
-  description: Build and push Docker image to public registry (Docker Hub or GHCR)
   params:
     - name: image-name
       type: string
-      description: Full image name with registry (e.g., docker.io/username/app or ghcr.io/username/app)
     - name: image-tag
       type: string
-      description: Image tag
       default: "latest"
     - name: dockerfile
       type: string
-      description: Path to Dockerfile
       default: "Dockerfile"
   workspaces:
     - name: source
-      description: Workspace containing the source code
-    - name: dockerconfig
-      description: Docker config for authentication
-      optional: true
-  results:
-    - name: IMAGE_URL
-      description: Full URL of the built image
   steps:
     - name: build-and-push
-      image: gcr.io/kaniko-project/executor:latest
+      image: gcr.io/kaniko-project/executor:v1.9.0
       workingDir: $(workspaces.source.path)/source
-      env:
-        - name: DOCKER_CONFIG
-          value: $(workspaces.dockerconfig.path)
-  steps:
-    - name: build-and-push
-      image: gcr.io/kaniko-project/executor:latest
-      workingDir: $(workspaces.source.path)/source
-      env:
-        - name: DOCKER_CONFIG
-          value: $(workspaces.dockerconfig.path)
       command:
         - /kaniko/executor
       args:
         - --dockerfile=$(params.dockerfile)
         - --context=$(workspaces.source.path)/source
         - --destination=$(params.image-name):$(params.image-tag)
-        - --cache=true
-      securityContext:
-        runAsUser: 0
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker/
+  volumes:
+    - name: docker-config
+      secret:
+        secretName: dockerhub-credentials
+        items:
+          - key: .dockerconfigjson
+            path: config.json
+  results:
+    - name: IMAGE_URL
+      description: Full URL of the built image
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor:v1.9.0
+      workingDir: $(workspaces.source.path)/source
+      command:
+        - /kaniko/executor
+      args:
+        - --dockerfile=$(params.dockerfile)
+        - --context=$(workspaces.source.path)/source
+        - --destination=$(params.image-name):$(params.image-tag)
+      onError: continue
+      script: |
+        /kaniko/executor \
+          --dockerfile=$(params.dockerfile) \
+          --context=$(workspaces.source.path)/source \
+          --destination=$(params.image-name):$(params.image-tag)
+        echo -n "$(params.image-name):$(params.image-tag)" > $(results.IMAGE_URL.path)
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker/
