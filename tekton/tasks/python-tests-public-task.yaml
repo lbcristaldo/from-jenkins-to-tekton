@@ -1,0 +1,89 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: python-tests-comprehensive
+  namespace: default
+spec:
+  description: Run unit tests, create config, and validate
+  params:
+    - name: python-version
+      type: string
+      default: "3.11"
+  workspaces:
+    - name: source
+      description: Workspace containing the source code
+  steps:
+    - name: unit-tests
+      image: python:$(params.python-version)-slim
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/bin/bash
+        set -ex
+        
+        echo "-=- execute unit tests -=-"
+        
+        . venv/bin/activate
+        
+        # Run tests if test directory exists
+        if [ -d "test" ]; then
+          pytest -v test
+          echo "✅ Unit tests passed"
+        else
+          echo "⚠️ No test directory found, skipping unit tests"
+        fi
+
+    - name: create-config
+      image: python:$(params.python-version)-slim
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/bin/bash
+        set -ex
+        
+        echo "-=- creating config.yml -=-"
+        
+        # Create config.yml using printf to avoid hidden characters
+        printf 'module: app\nbaseline: 10\nexclude-modules: []\ntest-runner:\n  name: unittest\n  args: test\nexecution-engine:\n  name: local\n' > config.yml
+        
+        echo "✅ config.yml created"
+        cat config.yml
+
+    - name: validate-config
+      image: python:$(params.python-version)-slim
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/bin/bash
+        set -ex
+        
+        echo "-=- validating config.yml -=-"
+        
+        . venv/bin/activate
+        
+        # Install PyYAML if not already installed
+        pip install pyyaml
+        
+        python3 -c "import yaml; config = yaml.safe_load(open('config.yml')); print('✅ Config valid'); print(config)"
+
+    - name: dependency-vulnerability-check
+      image: python:$(params.python-version)-slim
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "-=- run dependency vulnerability tests -=-"
+        
+        . venv/bin/activate
+        
+        # Install safety
+        pip install safety || {
+          echo "⚠️ Failed to install safety, skipping vulnerability check"
+          exit 0
+        }
+        
+        # Run safety check (non-blocking)
+        safety check || {
+          echo "⚠️ Vulnerabilities found, but continuing pipeline"
+          exit 0
+        }
+        
+        echo "No critical vulnerabilities found"
