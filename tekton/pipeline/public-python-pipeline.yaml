@@ -92,8 +92,6 @@ spec:
       workspaces:
         - name: source
           workspace: shared-data
-        - name: dockerconfig
-          workspace: docker-credentials
 
     # Stage 5: Integration tests (run container and test)
     - name: integration-tests

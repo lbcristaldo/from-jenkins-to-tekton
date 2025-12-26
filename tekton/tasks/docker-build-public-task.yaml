@@ -14,9 +14,13 @@ spec:
       default: "Dockerfile"
   workspaces:
     - name: source
+      description: Workspace con el código fuente
+  results:
+    - name: IMAGE_URL
+      description: Full URL of the built image
   steps:
     - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.9.0
+      image: docker.io/kaniko-project/executor:v1.9.0
       workingDir: $(workspaces.source.path)/source
       command:
         - /kaniko/executor
@@ -24,6 +28,7 @@ spec:
         - --dockerfile=$(params.dockerfile)
         - --context=$(workspaces.source.path)/source
         - --destination=$(params.image-name):$(params.image-tag)
+        - --cache=true
       volumeMounts:
         - name: docker-config
           mountPath: /kaniko/.docker/
@@ -34,26 +39,5 @@ spec:
         items:
           - key: .dockerconfigjson
             path: config.json
-  results:
-    - name: IMAGE_URL
-      description: Full URL of the built image
-  steps:
-    - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.9.0
-      workingDir: $(workspaces.source.path)/source
-      command:
-        - /kaniko/executor
-      args:
-        - --dockerfile=$(params.dockerfile)
-        - --context=$(workspaces.source.path)/source
-        - --destination=$(params.image-name):$(params.image-tag)
-      onError: continue
-      script: |
-        /kaniko/executor \
-          --dockerfile=$(params.dockerfile) \
-          --context=$(workspaces.source.path)/source \
-          --destination=$(params.image-name):$(params.image-tag)
-        echo -n "$(params.image-name):$(params.image-tag)" > $(results.IMAGE_URL.path)
-      volumeMounts:
-        - name: docker-config
-          mountPath: /kaniko/.docker/
+
+ 
