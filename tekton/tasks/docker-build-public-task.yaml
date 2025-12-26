@@ -32,6 +32,10 @@ spec:
       volumeMounts:
         - name: docker-config
           mountPath: /kaniko/.docker/
+    - name: write-image-url 
+      image: busybox 
+      script: | 
+        echo "$(params.image-name):$(params.image-tag)" > /tekton/results/IMAGE_URL    
   volumes:
     - name: docker-config
       secret:
