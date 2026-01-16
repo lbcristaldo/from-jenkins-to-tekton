@@ -1,0 +1,72 @@
+---
+# ServiceAccount para ejecutar pipelines
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tekton-restricted-sa
+  namespace: tekton-prod
+
+---
+# Role para deploy en Kubernetes
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tekton-minimal-role
+  namespace: tekton-prod
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["my-secret"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "create", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tekton-restricted-binding
+  namespace: tekton-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tekton-minimal-role
+subjects:
+  - kind: ServiceAccount
+    name: tekton-restricted-sa
+    namespace: tekton-prod
+
+---
+# ClusterRole 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tekton-basic-clusterrole
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["tasks", "taskruns"]
+    verbs: ["get", "list", "create"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tekton-basic-clusterbinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tekton-basic-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: tekton-restricted-sa
+    namespace: tekton-prod
+
