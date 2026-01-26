@@ -145,15 +145,15 @@ esac
 
 # Paso 5: Aplicar RBAC
 print_step "Paso 3: Aplicando configuración de RBAC..."
-kubectl apply -f public-secrets-setup.yaml 2>/dev/null || {
-    print_warning "Archivo public-secrets-setup.yaml no encontrado"
+kubectl apply -f restricted-rbac.yaml 2>/dev/null || {
+    print_warning "Archivo restricted-rbac.yaml no encontrado"
     print_info "Creando RBAC básico..."
     cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: tekton-pipeline-sa
-  namespace: default
+  namespace: tekton-prod
 EOF
 }
 

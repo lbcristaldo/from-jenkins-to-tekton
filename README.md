@@ -1,351 +1,270 @@
-# Python Jenkins to Tekton Migration
+# Jenkins to Tekton Migration
 
- *Este repositorio contiene la migración completa de un pipeline de Jenkins a Tekton para aplicaciones Python.*
+Migration of a Python Flask CI/CD pipeline from Jenkins to Tekton, adapted from enterprise infrastructure to public container registries with secure GitOps practices.
+---
+## Project Origin
 
-## Descripción
-
-Proyecto de ejemplo que demuestra cómo migrar pipelines de CI/CD desde Jenkins a Tekton, aprovechando las capacidades nativas de Kubernetes para:
-
-- Mayor portabilidad entre clústeres
-- Ejecución basada en contenedores
-- Escalado automático
-- Mejor integración con ecosistema CNCF
-- Pipelines como código (GitOps ready)
-
-## Arquitectura
-
-```
-┌─────────────┐
-│   GitHub    │
-│  (Webhook)  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────┐
-│ EventListener   │
-│   (Triggers)    │
-└──────┬──────────┘
-       │
-       ▼
-┌─────────────────┐
-│   Pipeline      │
-│  ┌───────────┐  │
-│  │Git Clone  │  │
-│  └─────┬─────┘  │
-│        ▼        │
-│  ┌───────────┐  │
-│  │   Test    │  │
-│  └─────┬─────┘  │
-│        ▼        │
-│  ┌───────────┐  │
-│  │   Build   │  │
-│  └─────┬─────┘  │
-│        ▼        │
-│  ┌───────────┐  │
-│  │  Deploy   │  │
-│  └───────────┘  │
-└─────────────────┘
-       │
-       ▼
-┌─────────────────┐
-│   Kubernetes    │
-│    Cluster      │
-└─────────────────┘
-```
-
-## Prerequisitos
-
-- Kubernetes 1.24+
-- `kubectl` instalado y configurado
-- `tkn` CLI (Tekton CLI) - opcional pero recomendado
-- Cuenta de Docker Hub (o registry de imágenes alternativo)
-- Acceso al cluster con permisos de administrador
-
-## Quickstart
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/restalion/python-jenkins-pipeline.git
-cd python-jenkins-pipeline
-```
-
-### 2. Instalar Tekton (automático)
-
-```bash
-chmod +x deploy-tekton.sh
-./deploy-tekton.sh
-```
-
-### 3. Configurar credenciales
-
-```bash
-# Docker Hub
-kubectl create secret docker-registry docker-credentials \
-  --docker-server=docker.io \
-  --docker-username=TU_USUARIO \
-  --docker-password=TU_PASSWORD \
-  --docker-email=TU_EMAIL \
-  -n default
-```
-
-### 4. Ejecutar el pipeline
-
-```bash
-# Editar python-pipelinerun.yaml con tus valores
-# Luego ejecutar:
-kubectl create -f tekton/pipelinerun/python-pipelinerun.yaml
-
-# Ver logs en tiempo real
-tkn pipelinerun logs -f -L
-```
-
-## Estructura del Proyecto
-
-```
-.
-├── tekton/
-│   ├── tasks/                  # Definiciones de Tasks
-│   │   ├── git-clone-task.yaml
-│   │   ├── python-test-task.yaml
-│   │   ├── docker-build-task.yaml
-│   │   └── kubernetes-deploy-task.yaml
-│   ├── pipeline/               # Definición del Pipeline
-│   │   └── python-pipeline.yaml
-│   ├── pipelinerun/           # Ejecuciones del Pipeline
-│   │   └── python-pipelinerun.yaml
-│   ├── triggers/              # Configuración de Triggers
-│   │   └── tekton-triggers.yaml
-│   ├── rbac/                  # Permisos y Secrets
-│   │   └── rbac-and-secrets.yaml
-│   └── scripts/               # Scripts de utilidad
-│       └── deploy-tekton.sh
-├── k8s/                       # Manifiestos de Kubernetes
-│   └── deployment.yaml
-├── src/                       # Código fuente Python
-├── tests/                     # Tests unitarios
-├── Dockerfile
-├── requirements.txt
-├── MIGRATION-GUIDE.md         # Guía detallada de migración
-└── README.md
-```
-
-## Etapas del Pipeline
-
-### 1. **Git Clone**
-- Clona el repositorio
-- Checkout a la rama específica
-- Prepara el workspace compartido
-
-### 2. **Python Test**
-- Instala dependencias (`requirements.txt`)
-- Ejecuta tests con pytest
-- Genera reporte de cobertura
-- Ejecuta linters (flake8, black)
-
-### 3. **Docker Build & Push**
-- Construye imagen Docker usando Kaniko
-- Optimiza capas con cache
-- Push a Docker Hub
-- Tag con commit SHA o nombre de PipelineRun
-
-### 4. **Kubernetes Deploy**
-- Aplica manifiestos de Kubernetes
-- Actualiza deployment con nueva imagen
-- Espera rollout exitoso
-- Valida salud de pods
-
-## Configuración Detallada
-
-### Parámetros del Pipeline
-
-Edita `python-pipelinerun.yaml` para ajustar:
-
-```yaml
-params:
-  - name: repo-url
-    value: "https://github.com/tu-usuario/tu-repo.git"
-  - name: revision
-    value: "main"
-  - name: image-name
-    value: "tu-usuario/python-app"
-  - name: image-tag
-    value: "latest"
-  - name: deploy-namespace
-    value: "default"
-```
-
-### Webhooks de GitHub
-
-Para CI automático al hacer push:
-
-1. **En GitHub:**
-   - Settings → Webhooks → Add webhook
-   - Payload URL: `http://tu-cluster-url:8080`
-   - Content type: `application/json`
-   - Secret: (generado en el paso anterior)
-   - Events: Just the push event
-
-2. **Exponer EventListener:**
-
-```bash
-# Port-forward para testing local
-kubectl port-forward svc/el-github-listener 8080:8080
-
-# O crear Ingress para producción
-kubectl apply -f tekton/triggers/tekton-triggers.yaml
-```
-
-## Monitoreo
-
-### Tekton Dashboard
-
-```bash
-# Instalar
-kubectl apply -f https://storage.googleapis.com/tekton-releases/dashboard/latest/release.yaml
-
-# Acceder
-kubectl port-forward -n tekton-pipelines svc/tekton-dashboard 9097:9097
-
-# Abrir en navegador
-open http://localhost:9097
-```
-
-### Comandos útiles
-
-```bash
-# Ver todos los PipelineRuns
-tkn pipelinerun list
-
-# Ver logs del último PipelineRun
-tkn pipelinerun logs -f -L
-
-# Describir un Pipeline
-tkn pipeline describe python-ci-cd
-
-# Ver Tasks disponibles
-tkn task list
-
-# Cancelar un PipelineRun en ejecución
-tkn pipelinerun cancel <nombre>
-
-# Limpiar PipelineRuns completados
-tkn pipelinerun delete --all-completed
-```
-
-## Testing Local
-
-### Ejecutar tests manualmente
-
-```bash
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Ejecutar tests
-pytest tests/ -v --cov=.
-
-# Linting
-flake8 .
-black --check .
-```
-
-### Build local de Docker
-
-```bash
-# Build
-docker build -t python-app:dev .
-
-# Run
-docker run -p 8000:8000 python-app:dev
-
-# Test
-curl http://localhost:8000/health
-```
-
-## Troubleshooting
-
-### Pipeline falla en Git Clone
-
-```bash
-# Verificar URL del repositorio
-kubectl get pipeline python-ci-cd -o yaml | grep url
-
-# Verificar conectividad
-kubectl run -it --rm debug --image=alpine --restart=Never -- sh
-/ # apk add git
-/ # git clone https://github.com/restalion/python-jenkins-pipeline.git
-```
-
-### Error al hacer push a Docker Hub
-
-```bash
-# Verificar secret
-kubectl get secret docker-credentials -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d
-
-# Recrear secret
-kubectl delete secret docker-credentials
-kubectl create secret docker-registry docker-credentials \
-  --docker-server=docker.io \
-  --docker-username=TU_USUARIO \
-  --docker-password=TU_PASSWORD \
-  --docker-email=TU_EMAIL
-```
-
-### Pipeline se queda en Pending
-
-```bash
-# Verificar PVC
-kubectl get pvc
-
-# Ver eventos
-kubectl describe pipelinerun <nombre>
-
-# Verificar recursos del cluster
-kubectl top nodes
-```
-
-Ver [MIGRATION-GUIDE.md](MIGRATION-GUIDE.md) para más detalles de troubleshooting.
-
-## Comparación Jenkins vs Tekton
-
-| Aspecto | Jenkins | Tekton |
-|---------|---------|--------|
-| **Ejecución** | VM/Container agent | Pods nativos de K8s |
-| **Configuración** | Groovy (Jenkinsfile) | YAML (CRDs de K8s) |
-| **Escalabilidad** | Manual/plugins | Auto-scaling nativo |
-| **Portabilidad** | Depende de plugins | 100% Kubernetes |
-| **Almacenamiento** | Workspace en disco | PVC/Workspaces |
-| **Observabilidad** | Plugins variados | Dashboard + K8s tools |
-| **Triggers** | Webhooks propios | Tekton Triggers |
-| **GitOps** | Limitado | Nativo (YAML en Git) |
-
-## Recursos Adicionales
-
-- [Documentación de Tekton](https://tekton.dev/docs/)
-- [Tekton Catalog](https://hub.tekton.dev/) - Tasks reutilizables
-- [Guía de Migración Completa](MIGRATION-GUIDE.md)
-- [Mejores Prácticas](https://tekton.dev/docs/pipelines/tasks/#best-practices)
-
-## Contribuir
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/amazing-feature`)
-3. Commit tus cambios (`git commit -m 'Add amazing feature'`)
-4. Push a la rama (`git push origin feature/amazing-feature`)
-5. Abre un Pull Request
-
-## License
-
-Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
-
-## Autora de la migración: 
-Luciana Cristaldo.
-Diciembre, 2025.
+Based on [restalion/python-jenkins-pipeline](https://github.com/restalion/python-jenkins-pipeline) - an enterprise Jenkinsfile originally configured for ByteDance/Volces infrastructure in China.
 
 ---
 
- Si este proyecto te ayudó, considera darle una estrella en GitHub!
+## What This Project Does
 
-**¿Preguntas?** Abre un issue en el repositorio.
+Migrates a complete CI/CD workflow from Jenkins to Kubernetes-native Tekton, including:
+- Git repository cloning
+- Python environment setup with virtual environments
+- Unit and integration testing
+- Docker image building with Kaniko
+- Push to Docker Hub
+- Secure credential management with SealedSecrets
+- RBAC-restricted service accounts
+
+---
+
+## Project Structure
+```
+.
+├── app/                          # Flask application
+│   ├── module_one/
+│   │   ├── controllers.py
+│   │   └── models.py
+│   └── templates/
+├── test/                         # Unit tests
+│   └── test_basicfunction.py
+├── int_test/                     # Integration tests
+│   └── int_test.py
+├── tekton/                       # Tekton CI/CD configuration
+│   ├── tasks/
+│   │   ├── git-clone-task.yaml
+│   │   ├── python-environment-public-task.yaml
+│   │   ├── python-tests-public-task.yaml
+│   │   ├── docker-build-public-task.yaml
+│   │   └── integration-tests-public-task.yaml
+│   ├── pipeline/
+│   │   └── public-python-pipeline.yaml
+│   ├── pipelinerun/
+│   │   └── public-pipelinerun.yaml
+│   └── rbac/
+│       ├── public-secrets-setup.yaml      # Basic RBAC configuration
+│       └── restricted-rbac.yaml           # Production-restrictive RBAC
+├── sealed-secret.yaml                     # Encrypted credentials (safe for Git)
+├── sealed-secret-tekton-prod.yaml        # Namespaced encrypted credentials
+├── Dockerfile                    # Adapted for public registries
+├── Dockerfile.original          # Original (Alibaba Cloud)
+├── requirements.txt
+├── config.yml
+└── Jenkinsfile                  # Original Jenkins configuration
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Kubernetes cluster (minikube, kind, or cloud)
+- kubectl installed
+- Docker Hub account
+
+### 1. Install Tekton
+```bash
+kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
+kubectl get pods -n tekton-pipelines
+```
+
+### 2. Install SealedSecrets and Configure Secure Credentials
+
+```bash
+# Install SealedSecrets operator
+kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.26.0/controller.yaml
+
+# Install kubeseal CLI (on your local machine)
+# Linux: wget https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.26.0/kubeseal-0.26.0-linux-amd64.tar.gz
+# macOS: brew install kubeseal
+
+# Create secure namespace
+kubectl create namespace tekton-prod
+
+# Create SealedSecret (replace with your actual credentials)
+kubectl create secret generic dockerhub-credentials \
+  --namespace=tekton-prod \
+  --from-literal=username=YOUR_DOCKERHUB_USER \
+  --from-literal=password=YOUR_DOCKERHUB_TOKEN \
+  --dry-run=client -o yaml | kubeseal > sealed-dockerhub-secret.yaml
+
+# Apply the encrypted secret
+kubectl apply -f sealed-dockerhub-secret.yaml
+```
+
+### 3. Apply Tekton Resources
+```bash
+# Apply restrictive RBAC
+kubectl apply -f tekton/rbac/restricted-rbac.yaml
+
+# Apply Tasks
+kubectl apply -f tekton/tasks/
+
+# Apply Pipeline
+kubectl apply -f tekton/pipeline/public-python-pipeline.yaml
+```
+
+### 4. Edit Pipeline Parameters
+
+Edit `tekton/pipelinerun/public-pipelinerun.yaml`:
+```yaml
+params:
+  - name: image-name
+    value: "docker.io/YOUR_USERNAME/python-app"  # Change this
+```
+
+### 5. Run Pipeline
+```bash
+kubectl create -n tekton-prod -f tekton/pipelinerun/public-pipelinerun.yaml
+kubectl get pipelineruns -n tekton-prod -w
+```
+
+---
+
+## Configuration Changes from Original
+
+### Original (Enterprise/China)
+```yaml
+Base Image: alibaba-cloud-linux-3-registry.cn-hangzhou.cr.aliyuncs.com
+Registry: ph-sw-cn-beijing.cr.volces.com
+Proxy: http://100.68.169.226:3128
+Pip Mirror: mirrors.aliyun.com/pypi
+```
+
+### Adapted (Public)
+```yaml
+Base Image: python:3.11-slim
+Registry: docker.io (Docker Hub)
+Proxy: None
+Pip Mirror: pypi.org (standard)
+```
+
+---
+
+## Security Implementation
+
+### SealedSecrets
+- Encrypted secrets stored directly in Git
+- Cluster-specific decryption (only your cluster can decrypt)
+- Eliminates plain-text credentials in version control
+
+### RBAC Restriction
+- ServiceAccount: `tekton-restricted-sa`
+- Minimal permissions principle:
+  - Only read specific secrets (not all)
+  - Only create/delete own pods
+  - No access to other namespaces
+- Namespace isolation: `tekton-prod`
+
+### Secure Task Configuration
+Tasks reference secrets securely:
+```yaml
+env:
+  - name: DOCKER_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: dockerhub-credentials
+        key: username
+```
+
+---
+
+## Known Issues & Solutions
+
+### OOMKilled During Docker Build
+
+**Symptom:** Kaniko fails with out-of-memory error
+
+**Solution:** Increase memory limits in `docker-build-public-task.yaml`:
+```yaml
+resources:
+  limits:
+    memory: "2Gi"
+```
+
+### Branch Name Error
+
+**Note:** Original repo uses `master` branch, not `main`:
+```yaml
+params:
+  - name: revision
+    value: "master"
+```
+
+## Pipeline Stages
+
+1. **git-clone**: Clone source repository using alpine/git
+2. **python-environment-setup**: Create venv, install dependencies, compile Python
+3. **python-tests-comprehensive**: Run pytest, validate config.yml, check vulnerabilities
+4. **docker-build-push**: Build image with Kaniko, push to Docker Hub
+5. **integration-tests**: Run container as sidecar, execute integration tests
+
+---
+
+## Key Differences: Jenkins vs Tekton
+
+| Feature | Jenkins | Tekton |
+|---------|---------|--------|
+| Execution | Jenkins agent | Kubernetes Pods |
+| Configuration | Groovy | YAML |
+| Docker | Docker-in-Docker | Kaniko (daemonless) |
+| Secrets | Jenkins credentials | Kubernetes SealedSecrets |
+| Security | Manual credential management | RBAC + namespace isolation |
+| Scaling | Manual | Native K8s autoscaling |
+
+---
+
+## Additional Files
+
+- `deploy-public-tekton.sh`: Automated setup script (not used in final implementation)
+- `sealed-secret.yaml`: Encrypted secret configuration
+- `VOLCES-MIGRATION-GUIDE.md`: Detailed migration documentation
+- `QUICKSTART.md`: Quick reference guide
+
+---
+
+## What Was Learned
+
+- Tekton Task and Pipeline architecture
+- Workspace management for sharing data between tasks
+- Kaniko for building Docker images without Docker daemon
+- SealedSecrets for GitOps-compatible credential management
+- RBAC restriction for production security
+- Kubernetes-native CI/CD patterns
+- Migration from enterprise to public infrastructure
+
+---
+
+## Status
+
+**Working:** Pipeline executes successfully  
+**Secured:** Encrypted secrets and RBAC implemented  
+**Tested:** Docker image builds and pushes to Docker Hub  
+**Production-ready:** Secure implementation complete  
+
+---
+
+## Future Enhancements
+
+Possible additions:
+- Tekton Triggers for GitHub webhooks
+- Automated vulnerability scanning
+- Slack/email notifications
+- Multi-environment support (dev/staging/prod)
+- Cost optimization with resource limits
+
+---
+
+## Resources
+
+- [Tekton Documentation](https://tekton.dev/docs/)
+- [Kaniko Documentation](https://github.com/GoogleContainerTools/kaniko)
+- [SealedSecrets GitHub](https://github.com/bitnami-labs/sealed-secrets)
+- [Original Repository](https://github.com/restalion/python-jenkins-pipeline)
+
+---
+
+**Note:** This is a learning project demonstrating Jenkins to Tekton migration with security best practices. The original Jenkinsfile is preserved for reference. All credentials are encrypted using SealedSecrets for safe Git storage.
