@@ -107,3 +107,14 @@ minikube-*
 kubeseal-*
 *.tar.gz
 *.tar
+# Binaries
+minikube-linux-amd64
+kubeseal
+*.tar.gz
+
+# Temporary files
+temp/
+
+# Sealed Secrets keys (sensitive)
+public-cert.pem
+tekton/public-key-cert.pem
