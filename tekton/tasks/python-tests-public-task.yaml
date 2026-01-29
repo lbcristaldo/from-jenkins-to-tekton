@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: python-tests-comprehensive
-  namespace: default
+  namespace: tekton-prod
 spec:
   description: Run unit tests, create config, and validate
   params:

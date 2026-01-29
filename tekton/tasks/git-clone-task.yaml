@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: git-clone
-  namespace: default
+  namespace: tekton-prod
 spec:
   description: Clone a git repository
   params:

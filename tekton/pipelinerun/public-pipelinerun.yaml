@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   generateName: python-public-run-
-  namespace: default
+  namespace: tekton-prod
   labels:
     app: python-jenkins-pipeline
     pipeline: python-ci-cd-public
@@ -17,13 +17,13 @@ spec:
       value: "master"
     - name: python-version
       value: "3.11"
-    
+ 
     - name: image-name
       value: "docker.io/lbcristaldo/python-app"
-      # Para GitHub Container Registry usa: "ghcr.io/YOUR_USERNAME/python-app"
+
     - name: image-tag
       value: "$(context.pipelineRun.name)"  # Use PipelineRun name as unique tag
-  
+
   workspaces:
     # Shared workspace for all tasks
     - name: shared-data
@@ -34,7 +34,7 @@ spec:
           resources:
             requests:
               storage: 2Gi
-    
+
     # Docker Hub credentials (optional for public images)
     # Remove this section if you don't have credentials yet
     - name: docker-credentials
@@ -43,7 +43,6 @@ spec:
         optional: false
 
   # Service account with necessary permissions
-  serviceAccountName: tekton-pipeline-sa
-  
-  # Timeout for the entire pipeline
+  serviceAccountName: tekton-restricted-sa
+
   timeout: 3h0m0s

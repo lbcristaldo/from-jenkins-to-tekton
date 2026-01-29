@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: docker-integration-tests
-  namespace: default
+  namespace: tekton-prod
 spec:
   description: Run Docker container and execute integration tests
   params:

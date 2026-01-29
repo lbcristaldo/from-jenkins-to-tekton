@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   name: python-ci-cd-public
-  namespace: default
+  namespace: tekton-prod
 spec:
   description: |
     Complete CI/CD pipeline for Python Flask application
