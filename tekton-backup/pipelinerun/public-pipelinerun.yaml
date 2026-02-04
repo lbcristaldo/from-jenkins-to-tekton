@@ -1,0 +1,48 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: python-public-run-
+  namespace: default
+  labels:
+    app: python-jenkins-pipeline
+    pipeline: python-ci-cd-public
+spec:
+  pipelineRef:
+    name: python-ci-cd-public
+  
+  params:
+    - name: repo-url
+      value: "https://github.com/restalion/python-jenkins-pipeline.git"
+    - name: revision
+      value: "master"
+    - name: python-version
+      value: "3.11"
+ 
+    - name: image-name
+      value: "docker.io/lbcristaldo/python-app"
+
+    - name: image-tag
+      value: "$(context.pipelineRun.name)"  # Use PipelineRun name as unique tag
+
+  workspaces:
+    # Shared workspace for all tasks
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi
+
+    # Docker Hub credentials (optional for public images)
+    # Remove this section if you don't have credentials yet
+    - name: docker-credentials
+      secret:
+        secretName: dockerhub-credentials
+        optional: false
+
+  # Service account with necessary permissions
+  serviceAccountName: tekton-pipeline-sa
+
+  timeout: 3h0m0s

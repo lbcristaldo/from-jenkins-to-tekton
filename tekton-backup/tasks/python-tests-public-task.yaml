@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: python-tests-comprehensive
-  namespace: tekton-prod
+  namespace: default
 spec:
   description: Run unit tests, create config, and validate
   params:
@@ -22,7 +22,7 @@ spec:
         
         echo "-=- execute unit tests -=-"
         
-        source venv/bin/activate
+        . venv/bin/activate
         
         # Run tests if test directory exists
         if [ -d "test" ]; then
@@ -56,7 +56,7 @@ spec:
         
         echo "-=- validating config.yml -=-"
         
-        source venv/bin/activate
+        . venv/bin/activate
         
         # Install PyYAML if not already installed
         pip install pyyaml
@@ -72,7 +72,7 @@ spec:
         
         echo "-=- run dependency vulnerability tests -=-"
         
-        source venv/bin/activate
+        . venv/bin/activate
         
         # Install safety
         pip install safety || {

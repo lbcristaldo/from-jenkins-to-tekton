@@ -1,0 +1,64 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: python-environment-setup
+  namespace: default
+spec:
+  description: Setup Python environment with public infrastructure
+  params:
+    - name: python-version
+      type: string
+      description: Python version to use
+      default: "3.11"
+  workspaces:
+    - name: source
+      description: Workspace containing the source code
+  steps:
+    - name: setup-environment
+      image: python:$(params.python-version)-slim
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/bin/bash
+        set -ex
+        
+        echo "-=- preparing project environment -=-"
+        
+        # Install system dependencies
+        apt-get update
+        apt-get install -y python3-venv
+        
+        # Create virtual environment
+        python3 -m venv venv
+        
+        # Activate virtual environment
+        . venv/bin/activate
+        
+        # Upgrade pip (using standard PyPI)
+        pip install --upgrade pip
+        
+        # Install dependencies from requirements.txt
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+          echo "✅ Dependencies installed successfully"
+        else
+          echo "⚠️ requirements.txt not found, skipping"
+        fi
+        
+        # List installed packages
+        pip list
+        
+        echo "✅ Environment setup completed"
+
+    - name: compile-python
+      image: python:$(params.python-version)-slim
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/bin/bash
+        set -ex
+        
+        echo "-=- compiling project -=-"
+        
+        . venv/bin/activate
+        python -m compileall .
+        
+        echo "Python compilation completed"

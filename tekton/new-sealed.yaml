@@ -1,0 +1,15 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: my-secret
+  namespace: tekton-prod
+spec:
+  encryptedData:
+    .dockerconfigjson: AgAna6FtaoDJCR2/P2kwHZ+Fnf/NJaysRmK3eLkHskDh8cQpEsSAKGSgbpig3eIJ343p+NP9elos/pt94Mp2tvtOjOWrdF37QuZXe/wQJtCwD94RhJKBvd4BvZoQbNs0MpOK7TJJ7WupdB5YsXGLr2TDLbfhCfASDzcDfdump5Axj5XtV1vO0wrtp9f1stEhn1HGCCAJ9Zkz2QgjKbZOIHjhdwD2JQRGJ9LEgN7dqBuBNjdXqFmUcrCJAGw/F6hD+iY6h/Q1GlDjtqe05UVvKZ/Kj0brBtJJzDpO6/3eR4oMGUuY/d9mKlryXF1rXxn+kvuFGwcTWIKOSfhpcskfK2BQS0KG1W55PMk3Sb71OpU+GGactwph512Mjk8hdVAQvHD7ZFy+0blMzhmP6c5rbBrk+QnclstnSaPIVnqR5d0oExgiZwdrh02PVsn/Kl7cj6y1khL/B5cMWcyX11qwuZa8UyUsyWFtz58W3+AcZ3K/Zsu0xo6aRP6ezUaRJzcvUE2i1xu9uFWl6rShTSPNjZ3THKd9dTCzF6c+1mitfc8xjSLztwW2jk/bOq2IDZiy24RX7KFIVt2a6FNyHpyurNGYehTi5aHjpwaIBV8CjE3Je89JTEyV7Q50q0TcHy1rukSoxDYhJ7xXGhJjoL77qF+DiMa93VLfBYmLkxwkmyW4PpybSVTc6iDGjPG1qo2wZWLmzJxvbt6u98Bizx9d
+  template:
+    metadata:
+      creationTimestamp: null
+      name: my-secret
+      namespace: tekton-prod
